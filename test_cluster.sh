@@ -1,17 +1,13 @@
 #!/bin/bash
 
-# check if arp-scan is installed
-
+## check if arp-scan is installed
 #dpkg -l | grep arp-scan
 #if [ $? == 1 ]; then
 #	sudo apt install arp-scan
 #fi
 #echo "This is a cluster testing script"
 
-
-
 # get network interfaces names and delete lo
-
 iface_list=$(ifconfig | cut -d ' ' -f1 | tr ':' '\n' | awk NF)
 
 for iface in $iface_list; do
@@ -19,11 +15,12 @@ for iface in $iface_list; do
 	interfaces+=( $iface )
 done
 #echo ${interfaces[*]}
-delete=(lo)
-interfaces=( "${interfaces[@]/$delete}" )
+delete_lo=(lo)
+delete_net=(net)
+interfaces=( "${interfaces[@]/$delete_lo}" )
+interfaces=( "${interfaces[@]/$delete_net}" )
 
 # get local ip addresses and create an array
-
 for iface_name in ${!interfaces[*]}; do
 	
 	ip_list=$(sudo arp-scan --interface ${interfaces[${iface_name}]} \
@@ -36,16 +33,12 @@ for iface_name in ${!interfaces[*]}; do
 		echo $ip
 		ip_addresses+=( $ip )
 	done
-#	echo ${ip_addresses[*]}
 	
 done
 
+# do something with addresses
+echo $ip_addresses
 
-
-#do something with addresses
-
-#echo $ip_addresses
-#
-#for ip in ${ip_addresses[*]}; do
-#	ping $ip -c2
-#done
+for ip in ${ip_addresses[*]}; do
+	nc -zv $ip 1-1000 2>&1 | grep succeeded
+done
