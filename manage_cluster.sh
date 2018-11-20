@@ -6,8 +6,9 @@
 option1=$1
 option2=$2
 option3=$3
+backup_name=1
 
-function manage_vm () {
+function manage_kvm () {
 	if [[ $option3 == "list" ]]; then
 		salt "kvm*" cmd.run \
 		"
@@ -30,53 +31,6 @@ function manage_vm () {
 	"
 }
 
-function kvm01 () {
-	salt "kvm01.test.local" cmd.run \
-	"
-		virsh $option2 ctl01.test.local;
-		virsh $option2 msg01.test.local;
-		virsh $option2 nal01.test.local;
-		virsh $option2 dbs01.test.local;
-		virsh $option2 log01.test.local;
-		virsh $option2 mon01.test.local;
-		virsh $option2 mtr01.test.local;
-		virsh $option2 ntw01.test.local;
-		virsh list --all
-	"
-}
-
-function kvm02 () {
-	salt "kvm02.test.local" cmd.run \
-	"
-		virsh $option2 dbs02.test.local;
-		virsh $option2 ctl02.test.local;
-		virsh $option2 nal02.test.local;
-		virsh $option2 msg02.test.local;
-		virsh $option2 log02.test.local;
-		virsh $option2 ntw02.test.local;
-		virsh $option2 mon02.test.local;
-		virsh $option2 prx01.test.local;
-		virsh $option2 mtr02.test.local;
-		virsh list --all
-	"
-}
-
-function kvm03 () {
-	salt "kvm03.test.local" cmd.run \
-	"
-		virsh $option2 mon03.test.local;
-		virsh $option2 msg03.test.local;
-		virsh $option2 dbs03.test.local;
-		virsh $option2 log03.test.local;
-		virsh $option2 nal03.test.local;
-		virsh $option2 mtr03.test.local;
-		virsh $option2 ntw03.test.local;
-		virsh $option2 ctl03.test.local;
-		virsh $option2 prx02.test.local;
-		virsh list --all
-	"
-}
-
 function backup_kvm () {
 	if [[ $option2 == "list" ]]; then
 		salt "kvm*" cmd.run \
@@ -85,10 +39,12 @@ function backup_kvm () {
 		"
 		exit
 	elif [[ $option2 == "create" ]]; then
-		printf "Enter backup name: "
-		read backup_name
-		echo ""
-		salt "kvm*.test.local" cmd.run \
+		if [[ $backup_name == 1 ]]; then
+			printf "Enter backup name: "
+			read backup_name
+			echo ""
+		fi
+		salt "kvm0${option3}.test.local" cmd.run \
 			"
 				test ! -d /var/lib/libvirt/backup_${backup_name} && \
 				mkdir /var/lib/libvirt/backup_${backup_name};
@@ -99,7 +55,7 @@ function backup_kvm () {
 		printf "Enter backup name: "
 		read backup_name
 		echo ""
-		salt "kvm*.test.local" cmd.run \
+		salt "kvm0${option3}.test.local" cmd.run \
 			"
 				test /var/lib/libvirt/backup_${backup_name} && \
 				cp /var/lib/libvirt/backup_${backup_name}/*.local \
@@ -109,24 +65,28 @@ function backup_kvm () {
 }
 
 if [[ $option1 == "backup" ]]; then
-	backup_kvm
+	if [[ $option3 == "" ]]; then
+		for kvm in {1..3}; do
+			option3=1
+			backup_kvm
+			echo VM Images on KVM0${option3} have been backed up
+			let option3++
+		done
+	else
+		backup_kvm
+		echo VM Images on KVM0${option3} have been backed up
+	fi
 elif [[ $option1 == "vm" ]]; then
 	if [[ $option3 == "" ]]; then
-		kvm01
-		kvm02
-		kvm03
-		echo $option1 Virtual Machines on all KVMs
+		for kvm in {1..3}; do
+			option3=1
+			manage_kvm
+			echo $option2 Virtual Machines on KVM0${option3}
+			let option3++
+		done
 	else
-		if [[ $option3 == 1 ]]; then
-			echo $option1 Virtual Machines on KVM01
-			kvm01
-		elif [[ $option3 == 2 ]]; then
-			echo $option1 Virtual Machines on KVM02
-			kvm02
-		elif [[ $option3 == 3 ]]; then
-			echo $option1 Virtual Machines on KVM02
-			kvm03
-		fi
+		manage_kvm
+		echo $option2 Virtual Machines on KVM0${option3}
 	fi
 fi
 
