@@ -2,6 +2,13 @@
 
 # Script for managing control plane VMs
 
+# Configuration, # you can change these parameters to match the cluster
+cluster_name="test"
+domain="local"
+kvm_num=4 # number of KVMs in the cluster
+vm_list=( ctl msg nal dbs log mon mtr ntw prx )	# vm list
+
+# Do not touch these variables
 option1=$1
 option2=$2
 option3=$3
@@ -24,32 +31,38 @@ echo ""
 
 function manage_kvm () {
 	if [[ $option2 == "list" ]]; then
-		salt "kvm0${option3}.test.local" cmd.run \
+		salt "kvm0${option3}.${cluster_name}.${domain}" cmd.run \
 		"
 			virsh list --all
 		"
 	else
 		if [[ $option2 == "reboot" ]] || [[ $option2 == "destroy" ]] ||\
-				[[ $option2 == "undefine" ]]; then
+				[[ $option2 == "undefine" ]] || [[ $option2 == "shutdown" ]]; then
 			timeout=1;
 		else
-			timeout=40;
+			timeout=150;
 		fi
-		salt "kvm0${option3}.test.local" cmd.run \
+		for vm in ${vm_list[@]}; do
+			if [[ $vm == "prx" ]]; then
+				salt "kvm0${option3}.${cluster_name}.${domain}" cmd.run \
+				"
+					virsh $option2 ${vm}0$(( option3-1 )).${cluster_name}.${domain} && \
+					sleep ${timeout}
+					echo virsh $option2 ${vm}0$(( option3-1 )).${cluster_name}.${domain} DONE
+				"
+			else
+				salt "kvm0${option3}.${cluster_name}.${domain}" cmd.run \
+				"
+					virsh $option2 ${vm}0${option3}.${cluster_name}.${domain} && \
+					sleep ${timeout}
+					echo virsh $option2 ${vm}0${option3}.${cluster_name}.${domain} DONE
+				"
+			fi
+		done
+		salt "kvm0${option3}.${cluster_name}.${domain}" cmd.run \
 		"
-			virsh $option2 ctl0${option3}.test.local && sleep ${timeout};
-			virsh $option2 msg0${option3}.test.local && sleep ${timeout};
-			virsh $option2 nal0${option3}.test.local && sleep ${timeout};
-			virsh $option2 dbs0${option3}.test.local && sleep ${timeout};
-			virsh $option2 log0${option3}.test.local && sleep ${timeout};
-			virsh $option2 mon0${option3}.test.local && sleep ${timeout};
-			virsh $option2 mtr0${option3}.test.local && sleep ${timeout};
-			virsh $option2 ntw0${option3}.test.local && sleep ${timeout};
-			virsh $option2 prx0$(( option3-1 )).test.local;
 			virsh list --all
 		"
-	fi
-}
 
 function backup_kvm () {
 	if [[ $option2 == "list" ]]; then
@@ -61,25 +74,25 @@ function backup_kvm () {
 	fi
 
 	if [[ $option2 == "create" ]]; then
-		salt "kvm0${option3}.test.local" cmd.run \
+		salt "kvm0${option3}.${cluster_name}.${domain}" cmd.run \
 		"
 			test ! -d /var/lib/libvirt/backup_${backup_name} && \
 			mkdir /var/lib/libvirt/backup_${backup_name};
-			cp -r /var/lib/libvirt/images/*local \
+			cp -r /var/lib/libvirt/images/*${domain} \
 			/var/lib/libvirt/backup_${backup_name}/
 		"
 	elif [[ $option2 == "restore" ]]; then
-		salt "kvm0${option3}.test.local" cmd.run \
+		salt "kvm0${option3}.${cluster_name}.${domain}" cmd.run \
 		"
 			test /var/lib/libvirt/backup_${backup_name} && \
-			cp /var/lib/libvirt/backup_${backup_name}/*.local \
+			cp /var/lib/libvirt/backup_${backup_name}/*.${domain} \
 			/var/lib/libvirt/images/
 		"
 	elif [[ $option2 == "delete" ]]; then
 		printf "Are you you sure you wanna delete ${backup_name} y/n: "
 		read sure
 			if [[ $sure == "y" ]]; then
-				salt "kvm0*" cmd.run \
+				salt "kvm0${option3}" cmd.run \
 				"
 					rm -r /var/lib/libvirt/backup_${backup_name}
 				"
@@ -110,7 +123,7 @@ elif [[ $option1 == "vm" ]]; then
 	if [[ $option3 == "" ]]; then
 		option3=1
 		for kvm in {1..3}; do
-			manage_kvm
+			manage_kvm &
 			echo ${option2}ed Virtual Machines on KVM0${option3}
 			let option3++
 		done
