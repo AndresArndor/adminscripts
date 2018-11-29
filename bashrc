@@ -49,6 +49,7 @@ if [ -n "$force_color_prompt" ]; then
     fi
 fi
 
+export TZ='Europe/Saratov'
 PS1='$(if [[ $? == 0 ]]; then echo "\[\e[32m\]`date +%R:%S` \[\e[30m\]\u\[\e[33m\]@\[\e[30m\]\h"; else echo "\[\e[31m\]`date +%R:%S` \[\e[30m\]\u\[\e[33m\]@\[\e[30m\]\h"; fi)\[\e[0m\] \w \[\e[31m\]>\[\e[33m\]>\[\e[32m\]> \[\e[0m\]'
 PS2='\[\e[33m\]:| \[\e[0m\]\w \[\e[32m\]<\[\e[33m\]<\[\e[31m\]< \[\e[0m\]'
 
