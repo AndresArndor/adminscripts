@@ -1,2 +1,2 @@
 Set-Alias vim ' C:\Program Files (x86)\Vim\vim81\vim.exe'
-edit system environment variables to set the path
+edit system environment variables to set the path # it works
