@@ -48,4 +48,5 @@ set ls=2
 set cursorline
 set ignorecase
 set smartcase
-"colorscheme elflord
+colorscheme elflord
+"colorscheme ron
