@@ -1,0 +1,4 @@
+To start using your cluster, you need to run (as a regular user):
+sudo cp /etc/kubernetes/admin.conf /home/vagrant/
+sudo chown 1000:1000 /home/vagrant/admin.conf
+export KUBECONFIG=/home/vagrant/admin.conf
