@@ -37,6 +37,7 @@ PORT_WEB=$(get_free_port)
 PORT_API=$(get_free_port)
 PORT_KEY=$(get_free_port)
 PORT_MSP=$(get_free_port)
+PORT_SWG=$(get_free_port)
 
 FTP_URL=$(get_env FTP_URL)
 FTP_URI=$(echo $FTP_URL | awk -F:// '{print $2}')
@@ -74,6 +75,17 @@ docker build -t acrarm_keycloak_image - < ./Dockerfile
 mkdir -p ./nginx
 mkdir -p ./public
 
+PROXY_SET_HEADER=$(cat <<-EOF
+    proxy_set_header    Host               $(get_env ORIGIN);
+    proxy_set_header    X-Real-IP          \$remote_addr;
+    proxy_set_header    X-Forwarded-For    \$proxy_add_x_forwarded_for;
+    proxy_set_header    X-Forwarded-Host   \$host;
+    proxy_set_header    X-Forwarded-Server \$host;
+    proxy_set_header    X-Forwarded-Port   \$server_port;
+    proxy_set_header    X-Forwarded-Proto  \$scheme;
+EOF)
+
+
 cat << EOF > ./nginx/nginx.conf
 server {
   listen 80;
@@ -98,25 +110,28 @@ server {
 
   location /keycloak {
     proxy_pass http://172.16.0.1:8180/keycloak;
-    proxy_set_header    Host               $(get_env ORIGIN);
-    proxy_set_header    X-Real-IP          \$remote_addr;
-    proxy_set_header    X-Forwarded-For    \$proxy_add_x_forwarded_for;
-    proxy_set_header    X-Forwarded-Host   \$host;
-    proxy_set_header    X-Forwarded-Server \$host;
-    proxy_set_header    X-Forwarded-Port   \$server_port;
-    proxy_set_header    X-Forwarded-Proto  \$scheme;
+    $PROXY_SET_HEADER
   }
 
   location /api {
     proxy_pass http://172.16.0.1:$PORT_API;
+    $PROXY_SET_HEADER
   }
+
+  location /swagger {
+    proxy_pass http://172.16.0.1:$PORT_SWG;
+    $PROXY_SET_HEADER
+  }
+
 
   location /msp {
     proxy_pass http://172.16.0.1:$PORT_MSP;
+    $PROXY_SET_HEADER
   }
 
   location / {
     proxy_pass http://172.16.0.1:$PORT_WEB;
+    $PROXY_SET_HEADER
   }
 }
 EOF
@@ -166,6 +181,17 @@ services:
       - PROXY_ADDRESS_FORWARDING=true
     networks:
       - acrarm_default
+  swagger:
+    image: swaggerapi/swagger-ui
+    restart: unless-stopped
+    ports:
+      - "$PORT_SWG:8080"
+    volumes:
+      - $TMPDIR/$(get_repo_name ${REPO_LIST[1]}):/app
+    environment:
+      - SWAGGER_JSON=/app/swagger.json
+    networks:
+      - acrarm_default
   cdn:
     image: fauria/vsftpd
     restart: always
@@ -200,14 +226,14 @@ services:
       - "$PORT_API:8080"
     networks:
       - acrarm_default
-#  msp:
-#    build:
-#      context: $TMPDIR/$(get_repo_name ${REPO_LIST[2]})
-#    restart: unless-stopped
-#    ports:
-#       - "$PORT_MSP:8080"
-#    networks:
-#      - acrarm_default
+ # msp:
+ #   build:
+ #     context: $TMPDIR/$(get_repo_name ${REPO_LIST[2]})
+ #   restart: unless-stopped
+ #   ports:
+ #      - "$PORT_MSP:8080"
+ #   networks:
+ #     - acrarm_default
 
 networks:
   acrarm_default:
